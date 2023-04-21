@@ -29,27 +29,27 @@ func GetButton(l, id string, s discordgo.ButtonStyle, d bool) *discordgo.Button 
 	}
 }
 
-func (B *PugBot) HandleQueueMessages(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == B.Self.ID {
+func (b *PugBot) HandleQueueMessages(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.ID == b.Self.ID {
 		return
 	}
-	v, ok := B.QueueChannels[m.ChannelID]
+	v, ok := b.QueueChannels[m.ChannelID]
 	if ok {
 		log.Info("[MESSAGE IN Q CHANNEL]")
 		v.MessagesSinceISentOneAboutJoiningTheQueue++
 	}
 }
 
-func (B *PugBot) HandleQueueOptions(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (b *PugBot) HandleUserJoinQueue(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 }
 
-func (QC *QueueChannel) StartQueueChannel() {
+func (qc *QueueChannel) StartQueueChannel() {
 	go func() {
 		for {
-			if QC.MessagesSinceISentOneAboutJoiningTheQueue >= 5 {
-				QC.SendQueueOptions()
-				QC.MessagesSinceISentOneAboutJoiningTheQueue = 0
+			if qc.MessagesSinceISentOneAboutJoiningTheQueue >= 5 {
+				qc.SendQueueOptions()
+				qc.MessagesSinceISentOneAboutJoiningTheQueue = 0
 			}
 			time.Sleep(time.Second * 5)
 		}
@@ -57,7 +57,7 @@ func (QC *QueueChannel) StartQueueChannel() {
 
 }
 
-func (QC *QueueChannel) SendQueueOptions() {
+func (qc *QueueChannel) SendQueueOptions() {
 	components := []discordgo.MessageComponent{
 		&discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -66,12 +66,12 @@ func (QC *QueueChannel) SendQueueOptions() {
 			},
 		},
 	}
-	Bot.Session.ChannelMessageDelete(QC.Channel.ID, QC.LastMessageId)
-	m, _ := Bot.Session.ChannelMessageSendComplex(QC.Channel.ID, &discordgo.MessageSend{
+	Bot.Session.ChannelMessageDelete(qc.Channel.ID, qc.LastMessageId)
+	m, _ := Bot.Session.ChannelMessageSendComplex(qc.Channel.ID, &discordgo.MessageSend{
 		Content:    "im sending this message as a test",
 		Components: components,
 	})
 	if m != nil {
-		QC.LastMessageId = m.ID
+		qc.LastMessageId = m.ID
 	}
 }

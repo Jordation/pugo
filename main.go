@@ -93,7 +93,7 @@ func GetChannel(cID string) *discordgo.Channel {
 
 func StartBot() {
 	GetPugBot()
-
+	// look into lazygit
 	if err := Bot.Session.Open(); err != nil {
 		log.Fatal(err)
 	}
