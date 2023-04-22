@@ -6,40 +6,42 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bwmarrin/discordgo"
+	dgo "github.com/bwmarrin/discordgo"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
 type PugBot struct {
-	Self          *discordgo.User
-	Session       *discordgo.Session
+	Self          *dgo.User
+	Session       *dgo.Session
 	QueueChannels map[string]*QueueChannel
+	TESTING_MODE  bool
 }
 
 type QueueChannel struct {
-	Channel                                   *discordgo.Channel
-	Queue                                     []*discordgo.User
-	Games                                     []*Game
+	Channel                                   *dgo.Channel
+	Queue                                     []*dgo.User
+	Games                                     map[uuid.UUID]*Game
 	MessagesSinceISentOneAboutJoiningTheQueue int
 	LastMessageId                             string
 }
 
-type NewGame struct {
-	ActiveLobby *Lobby
-	ActiveGame  *Game
-}
-
-type Lobby struct {
-	Captains []*discordgo.User
-	Players  []*discordgo.User
-	GameId   int
-}
-
 type Game struct {
-	Team1  []*discordgo.User
-	Team2  []*discordgo.User
+	ParentChannel *dgo.Channel
+	Lobby         *ActiveLobby
+	Match         *ActiveMatch
+}
+
+type ActiveLobby struct {
+	Channel  *dgo.Channel
+	Captains []*dgo.User
+	Players  []*dgo.User
+}
+
+type ActiveMatch struct {
+	Team1  []*dgo.User
+	Team2  []*dgo.User
 	Result int
-	GameId int
 }
 
 type Config struct {
@@ -49,7 +51,8 @@ type Config struct {
 }
 
 var (
-	MaxPlayers = flag.Int("ppg", 2, "maximum players per game")
+	TestMode   = flag.Bool("bot-mode", true, "should the bot be in testing or production mode")
+	MaxPlayers = flag.Int("ppg", 4, "maximum players per game")
 	Token      = flag.String("bot-token", "", "The token for the discord bot")
 	Prefix     = flag.String("bot-prefix", "", "The prefix the bot will respond to")
 	cfg        Config
@@ -66,7 +69,7 @@ func init() {
 	log.Info("[CONFIG SCANNED]: Prefix ", cfg.Prefix)
 }
 func GetPugBot() {
-	bot, err := discordgo.New("Bot " + cfg.Token)
+	bot, err := dgo.New("Bot " + cfg.Token)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,9 +84,10 @@ func GetPugBot() {
 	Bot.Session = bot
 	Bot.Self = botUser
 	Bot.QueueChannels = queueChannels
+	Bot.TESTING_MODE = *TestMode
 }
 
-func GetChannel(cID string) *discordgo.Channel {
+func GetChannel(cID string) *dgo.Channel {
 	c, err := Bot.Session.Channel(cID)
 	if err != nil {
 		log.Fatal(err)
@@ -100,9 +104,10 @@ func StartBot() {
 
 	for chanID, channel := range Bot.QueueChannels {
 		channel.Channel = GetChannel(chanID)
-		channel.StartQueueChannel()
+		channel.InitQueueChannel()
 	}
 	Bot.Session.AddHandler(Bot.HandleQueueMessages)
+	Bot.Session.AddHandler(Bot.HandleButtonPress)
 	select {}
 }
 
