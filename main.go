@@ -29,17 +29,25 @@ type QueueChannel struct {
 }
 
 type ActiveLobby struct {
+	GldId     string
 	Channel   *dgo.Channel
 	Captains  []*dgo.User
 	Players   []*dgo.User
 	Match     *ActiveMatch
 	PickOrder bool
+	PickCount int
 }
 
 type ActiveMatch struct {
 	Team1  []*dgo.User
 	Team2  []*dgo.User
 	Result int
+}
+
+type ChannelConfig struct {
+	AllowedUsers []*dgo.User
+	GldId        string
+	dgoConfig    dgo.GuildChannelCreateData
 }
 
 type Config struct {
@@ -104,7 +112,6 @@ func GetChannel(cID string) *dgo.Channel {
 
 func StartBot() {
 	GetPugBot()
-	// look into lazygit
 	if err := Bot.Session.Open(); err != nil {
 		log.Fatal(err)
 	}

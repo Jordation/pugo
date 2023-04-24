@@ -8,6 +8,7 @@ import (
 	dgo "github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"syreclabs.com/go/faker"
 )
 
 // while the queue isnt full
@@ -52,6 +53,47 @@ func GetButton(l, id string, s dgo.ButtonStyle, d bool) *dgo.Button {
 		CustomID: id,
 		Disabled: d,
 	}
+}
+
+func MapUserPerms(users []*dgo.User, permType int64) (res []*dgo.PermissionOverwrite) {
+	for _, v := range users {
+		res = append(res, &dgo.PermissionOverwrite{
+			ID:    v.ID,
+			Type:  dgo.PermissionOverwriteTypeMember,
+			Allow: int64(permType),
+		})
+	}
+	return
+}
+
+func (al *ActiveLobby) GetChannelConfig(ctype dgo.ChannelType) *ChannelConfig {
+	switch ctype {
+	case dgo.ChannelTypeGuildText:
+		return &ChannelConfig{
+			GldId: al.GldId,
+			dgoConfig: dgo.GuildChannelCreateData{
+				Type:                 ctype,
+				PermissionOverwrites: MapUserPerms(al.Match.GetPlayers(), dgo.PermissionViewChannel),
+				Name:                 faker.Lorem().Word(),
+			}}
+
+	case dgo.ChannelTypeGuildVoice:
+		return &ChannelConfig{
+			GldId: al.GldId,
+			dgoConfig: dgo.GuildChannelCreateData{
+				Type:                 ctype,
+				PermissionOverwrites: MapUserPerms(al.Match.GetPlayers(), dgo.PermissionViewChannel),
+				Name:                 faker.Lorem().Word(),
+				UserLimit:            *MaxPlayers / 2,
+			},
+		}
+	default:
+		log.Error("[UNHANDLED CHANNEL TYPE]: GetChannelConfig")
+		return nil
+	}
+}
+func (b *PugBot) CreateTextChannel(conf *ChannelConfig) (*dgo.Channel, error) {
+	return b.Session.GuildChannelCreateComplex(conf.GldId, conf.dgoConfig)
 }
 
 func (qc *QueueChannel) UserInQueue(u *dgo.User) bool {
@@ -158,13 +200,31 @@ func (qc *QueueChannel) InitNewGame() {
 	}
 	Bot.PlayerMap.Set(gameId, playerIds...)
 	//TODO: make new chan for game
+
 	// make cancel game remove user set from map
-	newLobby.Channel = qc.Channel
+	newLobby.GldId = qc.Channel.GuildID
 	qc.Lobbies[gameId] = newLobby
 	newLobby.StartPicks()
 }
-
+func (al *ActiveLobby) GetPlayerset() (res []*dgo.User) {
+	res = append(res, al.Players...)
+	res = append(res, al.Captains...)
+	return
+}
+func (m *ActiveMatch) GetPlayers() (res []*dgo.User) {
+	res = append(res, m.Team1...)
+	res = append(res, m.Team2...)
+	return
+}
 func (al *ActiveLobby) StartPicks() {
+	nc, err := Bot.CreateTextChannel(al.GetChannelConfig(dgo.ChannelTypeGuildText))
+	if err != nil {
+		log.Error("[Start Picks Channel Create Error]: ", err)
+	}
+	if nc == nil {
+		panic("channel boom")
+	}
+	al.Channel = GetChannel(nc.ID)
 	al.SendPickOptions(al.Captains[0])
 }
 
@@ -173,7 +233,9 @@ func (al *ActiveLobby) MapRemainingPicks() (res []dgo.SelectMenuOption) {
 	for _, player := range al.Players {
 		res = append(res, dgo.SelectMenuOption{
 			Label: player.Username, // + role + etc...
-			Value: player.ID + strconv.Itoa(rand.Intn(100)),
+			// TODO: the random int is for self joining test
+			// breaks GetUser function in HandleSelectPlayer
+			Value: player.ID + strconv.Itoa(rand.Intn(10000)),
 		})
 	}
 	log.Info("[REMAINING PICKS]: ", res)
@@ -182,7 +244,7 @@ func (al *ActiveLobby) MapRemainingPicks() (res []dgo.SelectMenuOption) {
 
 // bool so i can flip it in the parent function each time captain swaps
 func (al *ActiveLobby) AddToTeam(u *dgo.User, t bool) {
-	log.Info("[ADDING TO TEAM]: ", u.Username, t)
+	log.Info("[ADDING TO TEAM]: ", u.Username)
 	// flipped so defaults to starting captain first
 	if !t {
 		al.Match.Team1 = append(al.Match.Team1, u)
@@ -201,6 +263,7 @@ func (al *ActiveLobby) RemovePickedUser(u *dgo.User) {
 	}
 }
 
+// TODO : CHANNEL TARGET
 func (al *ActiveLobby) SendPickOptions(u *dgo.User) {
 	log.Info("[SENDING PICK OPTIONS]")
 	components := []dgo.MessageComponent{

@@ -45,22 +45,23 @@ func (b *PugBot) HandleSelectPlayer(s *dgo.Session, i *dgo.InteractionCreate) {
 	if i.Type == dgo.InteractionMessageComponent &&
 		i.MessageComponentData().ComponentType == dgo.SelectMenuComponent {
 		selId := i.MessageComponentData().CustomID
-		if err := s.InteractionRespond(i.Interaction, &dgo.InteractionResponse{
-			Type: dgo.InteractionResponseDeferredMessageUpdate,
-		}); err != nil {
-			log.Error("[INTERACTION]: ", err)
-		}
 		switch selId {
 		case CPT_PICK:
-			//TODO: fix getuser
+			// TODO: This is for real usage, currently just adds self to team
+			//selectedUserId := i.Interaction.MessageComponentData().Values[0]
+			//lobby.AddToTeam(GetUser(i.Interaction.MessageComponentData().Values[0]), lobby.PickOrder)
+
 			lobbyUuid := b.PlayerMap.Get(i.Member.User.ID)
 			lobby := b.QueueChannels[i.ChannelID].Lobbies[lobbyUuid]
-			/* 			selectedUserId := i.Interaction.MessageComponentData().Values[0] */
 			lobby.AddToTeam(i.Member.User, lobby.PickOrder)
-			// send next pick message
+
 			// if there is only 1 player left in the pool, auto assign to last time, end picks
 			if len(lobby.Players) != 1 {
+				lobby.PickCount++
 				lobby.SendPickOptions(i.Member.User)
+				if lobby.PickCount%2 != 0 {
+					lobby.PickOrder = !lobby.PickOrder
+				}
 			} else {
 				lobby.AddToTeam(lobby.Players[0], lobby.PickOrder)
 				lobby.Match.Start()
