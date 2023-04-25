@@ -11,14 +11,14 @@ func (b *Pugo) DirectNotifyUser(
 	i *dgo.Interaction,
 	msg string,
 ) {
-	b.Session.FollowupMessageCreate(i, true, &dgo.WebhookParams{
+	b.FollowupMessageCreate(i, true, &dgo.WebhookParams{
 		Content: msg,
 		Flags:   dgo.MessageFlagsEphemeral,
 	})
 }
 
 func (b *Pugo) CreateTextChannel(conf *ChannelConfig) (*dgo.Channel, error) {
-	return b.Session.GuildChannelCreateComplex(conf.GldID, conf.DgoCfg)
+	return b.GuildChannelCreateComplex(conf.GldID, conf.DgoCfg)
 }
 
 func (b *Pugo) HandleQueueMessages(s *dgo.Session, m *dgo.MessageCreate) {
@@ -49,7 +49,6 @@ func (b *Pugo) HandleButtonPress(s *dgo.Session, i *dgo.InteractionCreate) {
 			if !ok {
 				log.Error("[ERR]: Queue channel not found")
 			}
-			log.Info("[USER JOIN QUEUE]: UID:", i.Member.User.ID)
 			v.AddUserToQueue(i.Member.User, i.Interaction)
 
 		case LEAVE_Q_ID:
@@ -57,7 +56,6 @@ func (b *Pugo) HandleButtonPress(s *dgo.Session, i *dgo.InteractionCreate) {
 			if !ok {
 				log.Error("[ERR]: Queue channel not found")
 			}
-			log.Info("[USER LEAVE QUEUE]: UID:", i.Member.User.ID)
 			v.RemoveUserFromQueue(i.Member.User, i.Interaction)
 
 		default:
@@ -78,24 +76,22 @@ func (b *Pugo) HandleSelectPlayer(s *dgo.Session, i *dgo.InteractionCreate) {
 				return
 			}
 			if len(lobby.Players) != 1 {
+				lobby.AddToTeam(i.Member.User, lobby.PickOrder)
 				lobby.PickCount++
-				lobby.SendPickOptions(i.Member.User)
 				if lobby.PickCount%2 != 0 {
 					lobby.PickOrder = !lobby.PickOrder
 				}
+				lobby.SendPickOptions(i.Member.User)
 			} else {
 				lobby.AddToTeam(lobby.Players[0], lobby.PickOrder)
 				lobby.Game.Start()
 			}
 
-			/* 			// TODO: This is for real usage, currently just adds self to team
-			   			//selectedUserId := i.Interaction.MessageComponentData().Values[0]
-			   			//lobby.AddToTeam(GetUser(i.Interaction.MessageComponentData().Values[0]), lobby.PickOrder)
-			   			lobbyUuid := b.PlayerMap.Get(i.Member.User.ID)
-			   			lobby := b.QueueChannels[i.ChannelID].Lobbies[lobbyUuid]
-			   			lobby.AddToTeam(i.Member.User, lobby.PickOrder)
+			/*
+				 TODO: This is for real usage, currently just adds self to team
+				lobby.AddToTeam(GetUser(i.Interaction.MessageComponentData().Values[0]), lobby.PickOrder)
+				if there is only 1 player left in the pool, auto assign to last time, end picks
 			*/
-			// if there is only 1 player left in the pool, auto assign to last time, end picks
 		}
 	}
 }

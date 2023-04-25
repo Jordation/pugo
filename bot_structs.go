@@ -18,7 +18,6 @@ type QueueChannel struct {
 }
 
 type Lobby struct {
-	GldId         string
 	ParentChannel *dgo.Channel
 	Channel       *dgo.Channel
 	Captains      []*dgo.User
@@ -27,6 +26,7 @@ type Lobby struct {
 	Game          *Game
 	PickCount     int
 	PickOrder     bool
+	MatchName     string
 }
 
 type Game struct {

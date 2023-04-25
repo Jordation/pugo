@@ -10,18 +10,75 @@ import (
 	"syreclabs.com/go/faker"
 )
 
-// IDs for buttons/forms
-const (
-	JOIN_Q    = "Join"
-	JOIN_Q_ID = "JQID"
-
-	LEAVE_Q    = "Leave"
-	LEAVE_Q_ID = "LQID"
-
-	CPT_PICK = "CaptainPickChoice"
-)
-
 /* General use functions that create values or datastructures to be used throughout the bot */
+
+func MapUserMentions(u []*dgo.User) (res string) {
+	for i, v := range u {
+		res += v.Username
+		if i+1 == len(u) {
+			continue
+		}
+		res += ", "
+	}
+	return
+}
+func MapTeamDisplay(u []*dgo.User) (res string) {
+	res += "```md"
+	for _, user := range u {
+		res += "\n- " + user.Username
+	}
+
+	res += "\n```"
+	return
+}
+
+func MakePicksEmbedFields(l *Lobby) (res []*dgo.MessageEmbedField) {
+
+	res = append(res, &dgo.MessageEmbedField{
+		Name: "Available picks",
+		Value: "```md\n" +
+			MapUserMentions(l.Players) +
+			"\n```",
+	})
+	res = append(res, &dgo.MessageEmbedField{
+		Name:   "Team 1",
+		Value:  MapTeamDisplay(l.Game.Team1),
+		Inline: true,
+	})
+	res = append(res, &dgo.MessageEmbedField{
+		Name:   "Team 2",
+		Value:  MapTeamDisplay(l.Game.Team2),
+		Inline: true,
+	})
+	res = append(res, &dgo.MessageEmbedField{
+		Name:  "Last selection:",
+		Value: "```md\n- if i cbf\n```",
+	})
+	return
+}
+func MakePicksEmbedMessage(l *Lobby) *dgo.MessageEmbed {
+	res := &dgo.MessageEmbed{}
+
+	// TODO: unhardcode this
+	res.Author = &dgo.MessageEmbedAuthor{Name: "Division 1"}
+	res.Title = "Welcome to match " + l.MatchName + "!"
+
+	res.Description =
+		"```md\n# Welcome! #" +
+			"\n\n" +
+			"Captains for this match are: " +
+			"\n- " + l.Captains[0].Username +
+			"\n- " + l.Captains[1].Username +
+			"\n```"
+
+	res.Fields = MakePicksEmbedFields(l)
+
+	return res
+}
+
+func GetQueueOptionBody(l *Lobby) (*dgo.Message, error) {
+	return Bot.ChannelMessageSendEmbed(l.Channel.ID, &dgo.MessageEmbed{})
+}
 
 func GetCaptainIds() (int, int) {
 	rand.Seed(time.Now().UnixNano())
@@ -63,7 +120,8 @@ func GetChannelConfig(ctype dgo.ChannelType, GldId string, ValidUsers []*dgo.Use
 			DgoCfg: dgo.GuildChannelCreateData{
 				Type:                 ctype,
 				PermissionOverwrites: MapUserPerms(ValidUsers, dgo.PermissionViewChannel),
-				Name:                 faker.Lorem().Word(),
+				// TODO: make match names
+				Name: faker.Lorem().Word(),
 			}}
 
 	case dgo.ChannelTypeGuildVoice:
@@ -82,7 +140,7 @@ func GetChannelConfig(ctype dgo.ChannelType, GldId string, ValidUsers []*dgo.Use
 	}
 }
 
-func MapUsersToPickoptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
+func MapUsersToPickOptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
 	for _, player := range u {
 		res = append(res, dgo.SelectMenuOption{
 			Label: player.Username, // + role + etc...
@@ -91,6 +149,8 @@ func MapUsersToPickoptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
 			Value: player.ID + strconv.Itoa(rand.Intn(10000)),
 		})
 	}
-	log.Info("[REMAINING PICKS]: ", res)
+	for _, p := range res {
+		log.Info("[REMAINING PICKS]: ", p.Label)
+	}
 	return
 }

@@ -5,13 +5,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func GetLobby() *Lobby {
+func GetLobby(pc *dgo.Channel) *Lobby {
 	return &Lobby{
-		Game: &Game{},
+		ParentChannel: pc,
+		Game:          &Game{},
 	}
 }
 
 func (l *Lobby) SendPickOptions(c *dgo.User) {
+	var err error
 	log.Info("[SENDING PICK OPTIONS]")
 	components := []dgo.MessageComponent{
 		dgo.ActionsRow{
@@ -20,13 +22,27 @@ func (l *Lobby) SendPickOptions(c *dgo.User) {
 					MenuType:    dgo.StringSelectMenu,
 					CustomID:    CPT_PICK,
 					Placeholder: "Pick player",
-					Options:     MapUsersToPickoptions(l.GetParticipants()),
+					Options:     MapUsersToPickOptions(l.Players),
 				},
 			},
 		},
 	}
-	_, err := Bot.Session.ChannelMessageSendComplex(l.Channel.ID, &dgo.MessageSend{
-		Content:    "Message about picks",
+
+	_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, &dgo.MessageSend{
+		Embeds: []*dgo.MessageEmbed{MakePicksEmbedMessage(l)},
+	})
+	if err != nil {
+		log.Error(err)
+	}
+
+	var cpt string
+	if l.PickOrder {
+		cpt = l.Captains[0].Username
+	} else {
+		cpt = l.Captains[1].Username
+	}
+	_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, &dgo.MessageSend{
+		Content:    cpt + "'s Choice of Pick",
 		Components: components,
 	})
 	if err != nil {
@@ -53,17 +69,26 @@ func (l *Lobby) RemovePickedUser(u *dgo.User) {
 	}
 }
 func (l *Lobby) StartPickPhase() {
-	chanCfg := GetChannelConfig(dgo.ChannelTypeGuildText, l.GldId, l.GetParticipants())
+	chanCfg := GetChannelConfig(dgo.ChannelTypeGuildText, l.ParentChannel.GuildID, l.GetParticipants())
 	nc, err := Bot.CreateTextChannel(chanCfg)
 	if err != nil {
 		log.Error("[Start Picks Channel Create Error]: ", err)
 	}
+
 	if nc == nil {
 		panic("channel boom")
 	}
+
+	Bot.Lobbies.Set(nc.ID, l)
+
+	// Sets the match name
+	l.MatchName = chanCfg.DgoCfg.Name
+	// Sets the channel to the newly created channel
 	l.Channel = GetChannel(nc.ID)
+
 	l.SendPickOptions(l.Captains[0])
 }
+
 func (l *Lobby) GetParticipants() (res []*dgo.User) {
 	res = append(res, l.Players...)
 	res = append(res, l.Captains...)

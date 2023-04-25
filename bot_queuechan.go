@@ -23,10 +23,15 @@ func (qc *QueueChannel) AddUserToQueue(u *dgo.User, i *dgo.Interaction) {
 		Bot.DirectNotifyUser(u, qc.Channel, i, ALREADY_IN_QUEUE_J)
 		return
 	}
+
+	log.Info("[USER JOIN QUEUE]: UID:", i.Member.User.ID)
+
 	qc.Queue = append(qc.Queue, u)
 	if len(qc.Queue) == *MaxPlayers {
 		qc.StartNewLobby()
 	}
+
+	log.Info("[QUEUE STATE]: ", qc.Queue)
 }
 func (qc *QueueChannel) RemoveUserFromQueue(u *dgo.User, i *dgo.Interaction) {
 	if qc.UserInQueue(u) {
@@ -34,12 +39,16 @@ func (qc *QueueChannel) RemoveUserFromQueue(u *dgo.User, i *dgo.Interaction) {
 		return
 	}
 
+	log.Info("[USER LEAVE QUEUE]: UID:", i.Member.User.ID)
+
 	for i, v := range qc.Queue {
 		if v.ID == u.ID {
 			qc.Queue = append(qc.Queue[:i], qc.Queue[i+1:]...)
 			return
 		}
 	}
+
+	log.Info("[QUEUE STATE]: ", qc.Queue)
 }
 func (qc *QueueChannel) InitQueueChannel() {
 	go func() {
@@ -48,7 +57,7 @@ func (qc *QueueChannel) InitQueueChannel() {
 				qc.SendQueueOptions()
 				qc.MsgTicker = 0
 			}
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 1)
 		}
 	}()
 }
@@ -61,8 +70,9 @@ func (qc *QueueChannel) SendQueueOptions() {
 			},
 		},
 	}
-	Bot.Session.ChannelMessageDelete(qc.Channel.ID, qc.LastBotMsgId)
-	m, _ := Bot.Session.ChannelMessageSendComplex(qc.Channel.ID, &dgo.MessageSend{
+
+	Bot.ChannelMessageDelete(qc.Channel.ID, qc.LastBotMsgId)
+	m, _ := Bot.ChannelMessageSendComplex(qc.Channel.ID, &dgo.MessageSend{
 		Content:    "im sending this message as a test",
 		Components: components,
 	})
@@ -72,11 +82,11 @@ func (qc *QueueChannel) SendQueueOptions() {
 }
 func (qc *QueueChannel) StartNewLobby() {
 	var (
-		nl             = GetLobby()
+		nl             = GetLobby(qc.Channel)
 		cap1id, cap2id = GetCaptainIds()
+		team_number    = 1
 	)
 	for i, v := range qc.Queue {
-		team_number := 1
 		if i != cap1id && i != cap2id {
 			// If its not a captain ID, append to players list
 			nl.Players = append(nl.Players, v)
@@ -86,12 +96,14 @@ func (qc *QueueChannel) StartNewLobby() {
 			switch team_number {
 			case 1:
 				nl.Game.Team1 = append(nl.Game.Team1, v)
+				team_number++
 			case 2:
 				nl.Game.Team2 = append(nl.Game.Team2, v)
 			default:
 				log.Fatal("wtf")
 			}
-			team_number++
 		}
 	}
+	go nl.StartPickPhase()
+	qc.Queue = make([]*dgo.User, 0)
 }

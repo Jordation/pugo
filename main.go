@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"os"
+	"os/signal"
 
 	dgo "github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
@@ -59,14 +59,14 @@ func InitBot() {
 
 func GetUser(uID string) *dgo.User {
 	log.Info("[GETTING USER]: ", uID)
-	u, err := Bot.Session.User(uID)
+	u, err := Bot.User(uID)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return u
 }
 func GetChannel(cID string) *dgo.Channel {
-	c, err := Bot.Session.Channel(cID)
+	c, err := Bot.Channel(cID)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func GetChannel(cID string) *dgo.Channel {
 
 func StartBot() {
 	InitBot()
-	if err := Bot.Session.Open(); err != nil {
+	if err := Bot.Open(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -83,13 +83,17 @@ func StartBot() {
 		channel.Channel = GetChannel(chanID)
 		channel.InitQueueChannel()
 	}
-	Bot.Session.AddHandler(Bot.HandleQueueMessages)
-	Bot.Session.AddHandler(Bot.HandleButtonPress)
-	Bot.Session.AddHandler(Bot.HandleSelectPlayer)
-	select {}
+	Bot.AddHandler(Bot.HandleQueueMessages)
+	Bot.AddHandler(Bot.HandleButtonPress)
+	Bot.AddHandler(Bot.HandleSelectPlayer)
+	defer Bot.Close()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	<-stop
+	log.Info("Graceful shutdown")
 }
 
 func main() {
 	StartBot()
-	fmt.Println("Shutting down ")
 }
