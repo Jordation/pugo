@@ -20,43 +20,62 @@ func (l *Lobby) GetPingAllString() (res string) {
 	return
 }
 
-func (l *Lobby) SendPickOptions(c *dgo.User) {
+func (l *Lobby) SendPickOptions() {
 	var err error
+	var cpt string
 	log.Info("[SENDING PICK OPTIONS]")
-	components := []dgo.MessageComponent{
-		dgo.ActionsRow{
-			Components: []dgo.MessageComponent{
-				dgo.SelectMenu{
-					MenuType:    dgo.StringSelectMenu,
-					CustomID:    CPT_PICK,
-					Placeholder: "Pick player",
-					Options:     MapUsersToPickOptions(l.Players),
+
+	cpt = l.Captains[1].Username
+	if l.PickOrder {
+		cpt = l.Captains[0].Username
+	}
+
+	PicksMsg := &dgo.MessageSend{
+		Content: cpt + "'s Choice of Pick",
+		Components: []dgo.MessageComponent{
+			dgo.ActionsRow{
+				Components: []dgo.MessageComponent{
+					dgo.SelectMenu{
+						MenuType:    dgo.StringSelectMenu,
+						CustomID:    CPT_PICK,
+						Placeholder: "Pick player",
+						Options:     MapUsersToPickOptions(l.Players),
+					},
 				},
 			},
 		},
 	}
 
-	_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, &dgo.MessageSend{
+	ComplexMsg := &dgo.MessageSend{
 		AllowedMentions: &dgo.MessageAllowedMentions{Parse: []dgo.AllowedMentionType{dgo.AllowedMentionTypeUsers}},
 		Content:         "Match Beginning! Attention: " + l.GetPingAllString(),
 		Embeds:          []*dgo.MessageEmbed{MakePicksEmbedMessage(l)},
-	})
-	if err != nil {
-		log.Error(err)
 	}
 
-	var cpt string
-	if l.PickOrder {
-		cpt = l.Captains[0].Username
+	// handle final man going to final side
+	if len(l.Players) == 1 {
+		l.AddToTeam(l.Players[0], l.PickOrder)
+
+		// remake the embed message to reflect change
+		ComplexMsg.Embeds = []*dgo.MessageEmbed{MakePicksEmbedMessage(l)}
+		_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, ComplexMsg)
+		if err != nil {
+			log.Error(err)
+		}
+
+		l.Game.Start()
+		return
+
 	} else {
-		cpt = l.Captains[1].Username
-	}
-	_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, &dgo.MessageSend{
-		Content:    cpt + "'s Choice of Pick",
-		Components: components,
-	})
-	if err != nil {
-		log.Error(err)
+		_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, ComplexMsg)
+		if err != nil {
+			log.Error(err)
+		}
+
+		_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, PicksMsg)
+		if err != nil {
+			log.Error(err)
+		}
 	}
 }
 func (l *Lobby) AddToTeam(u *dgo.User, t bool) {
@@ -96,7 +115,7 @@ func (l *Lobby) StartPickPhase() {
 	// Sets the channel to the newly created channel
 	l.Channel = GetChannel(nc.ID)
 
-	l.SendPickOptions(l.Captains[0])
+	l.SendPickOptions()
 }
 
 func (l *Lobby) GetParticipants() (res []*dgo.User) {

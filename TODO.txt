@@ -1,0 +1,2 @@
+TODO
+[] refactor send pick options to be handled by interaction response loop rather than the lobby struct

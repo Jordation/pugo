@@ -60,7 +60,6 @@ func (b *Pugo) HandleButtonPress(s *dgo.Session, i *dgo.InteractionCreate) {
 				log.Error("[ERR]: Queue channel not found")
 			}
 			v.AddUserToQueue(i.Member.User, i.Interaction)
-
 		case LEAVE_Q_ID:
 			v, ok := b.QueueChannels.Get(i.ChannelID)
 			if !ok {
@@ -71,6 +70,7 @@ func (b *Pugo) HandleButtonPress(s *dgo.Session, i *dgo.InteractionCreate) {
 		default:
 			log.Info("[BTN CLICK]: no case matched")
 		}
+
 	}
 }
 
@@ -78,6 +78,7 @@ func (b *Pugo) HandleSelectPlayer(s *dgo.Session, i *dgo.InteractionCreate) {
 	if i.Type == dgo.InteractionMessageComponent &&
 		i.MessageComponentData().ComponentType == dgo.SelectMenuComponent {
 		selId := i.MessageComponentData().CustomID
+		s.InteractionRespond(i.Interaction, &dgo.InteractionResponse{Type: dgo.InteractionResponseChannelMessageWithSource})
 		switch selId {
 		case CPT_PICK:
 			lobby, ok := b.Lobbies.Get(i.ChannelID)
@@ -85,17 +86,14 @@ func (b *Pugo) HandleSelectPlayer(s *dgo.Session, i *dgo.InteractionCreate) {
 				log.Error("[ERR]: Lobby channel not found")
 				return
 			}
-			if len(lobby.Players) != 1 {
-				lobby.AddToTeam(i.Member.User, lobby.PickOrder)
-				lobby.PickCount++
-				if lobby.PickCount%2 != 0 {
-					lobby.PickOrder = !lobby.PickOrder
-				}
-				lobby.SendPickOptions(i.Member.User)
-			} else {
-				lobby.AddToTeam(lobby.Players[0], lobby.PickOrder)
-				lobby.Game.Start()
+
+			lobby.AddToTeam(i.Member.User, lobby.PickOrder)
+			lobby.PickCount++
+
+			if lobby.PickCount%2 != 0 {
+				lobby.PickOrder = !lobby.PickOrder
 			}
+			lobby.SendPickOptions()
 
 			/*
 				 TODO: This is for real usage, currently just adds self to team
