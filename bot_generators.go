@@ -72,12 +72,7 @@ func MakePicksEmbedMessage(l *Lobby) *dgo.MessageEmbed {
 			"\n```"
 
 	res.Fields = MakePicksEmbedFields(l)
-
 	return res
-}
-
-func GetQueueOptionBody(l *Lobby) (*dgo.Message, error) {
-	return Bot.ChannelMessageSendEmbed(l.Channel.ID, &dgo.MessageEmbed{})
 }
 
 func GetCaptainIds() (int, int) {

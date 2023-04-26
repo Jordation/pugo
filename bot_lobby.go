@@ -12,6 +12,14 @@ func GetLobby(pc *dgo.Channel) *Lobby {
 	}
 }
 
+func (l *Lobby) GetPingAllString() (res string) {
+	users := l.GetParticipants()
+	for _, user := range users {
+		res += user.Mention() + " "
+	}
+	return
+}
+
 func (l *Lobby) SendPickOptions(c *dgo.User) {
 	var err error
 	log.Info("[SENDING PICK OPTIONS]")
@@ -29,7 +37,9 @@ func (l *Lobby) SendPickOptions(c *dgo.User) {
 	}
 
 	_, err = Bot.ChannelMessageSendComplex(l.Channel.ID, &dgo.MessageSend{
-		Embeds: []*dgo.MessageEmbed{MakePicksEmbedMessage(l)},
+		AllowedMentions: &dgo.MessageAllowedMentions{Parse: []dgo.AllowedMentionType{dgo.AllowedMentionTypeUsers}},
+		Content:         "Match Beginning! Attention: " + l.GetPingAllString(),
+		Embeds:          []*dgo.MessageEmbed{MakePicksEmbedMessage(l)},
 	})
 	if err != nil {
 		log.Error(err)

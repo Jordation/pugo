@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -25,7 +26,8 @@ func (sm *QC_SM) Get(id string) (*QueueChannel, bool) {
 	if ok {
 		return v, ok
 	}
-	log.Error("[SM GET]: Key not found")
+	_, f, l, _ := runtime.Caller(1)
+	log.Error("[QUEUE MAP GET]: Key not found ", f, l)
 	return nil, ok
 }
 
@@ -45,7 +47,8 @@ func (sm *L_SM) Get(id string) (*Lobby, bool) {
 	if ok {
 		return v, ok
 	}
-	log.Error("[SM GET]: Key not found")
+	_, f, l, _ := runtime.Caller(1)
+	log.Error("[LOBBY MAP GET]: Key not found ", f, l)
 	return nil, ok
 }
 

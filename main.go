@@ -12,7 +12,7 @@ import (
 
 var (
 	TestMode   = flag.Bool("bot-mode", true, "should the bot be in testing or production mode")
-	MaxPlayers = flag.Int("ppg", 6, "maximum players per game")
+	MaxPlayers = flag.Int("ppg", 4, "maximum players per game")
 	Token      = flag.String("bot-token", "", "The token for the discord bot")
 	Prefix     = flag.String("bot-prefix", "", "The prefix the bot will respond to")
 	BotCfg     BotConfig

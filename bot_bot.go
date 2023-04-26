@@ -3,6 +3,7 @@ package main
 import (
 	dgo "github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 )
 
 func (b *Pugo) DirectNotifyUser(
@@ -25,6 +26,15 @@ func (b *Pugo) HandleQueueMessages(s *dgo.Session, m *dgo.MessageCreate) {
 	if m.Author.ID == b.Self.ID {
 		return
 	}
+
+	var queueIds []string
+	for k := range b.QueueChannels.m {
+		queueIds = append(queueIds, k)
+	}
+	if !slices.Contains(queueIds, m.ChannelID) {
+		return
+	}
+
 	v, ok := b.QueueChannels.Get(m.ChannelID)
 	if ok {
 		log.Info("[MESSAGE IN Q CHANNEL]")
