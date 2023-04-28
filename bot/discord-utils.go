@@ -1,4 +1,4 @@
-package main
+package bot
 
 import (
 	"math/rand"
@@ -7,7 +7,6 @@ import (
 
 	dgo "github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-	"syreclabs.com/go/faker"
 )
 
 /* General use functions that create values or datastructures to be used throughout the bot */
@@ -32,22 +31,21 @@ func MapTeamDisplay(u []*dgo.User) (res string) {
 	return
 }
 
-func MakePicksEmbedFields(l *Lobby) (res []*dgo.MessageEmbedField) {
-
+func MakePicksEmbedFields(lm *liveMatch) (res []*dgo.MessageEmbedField) {
 	res = append(res, &dgo.MessageEmbedField{
 		Name: "Available picks",
 		Value: "```md\n" +
-			MapUserMentions(l.Players) +
+			MapUserMentions(lm.Players) +
 			"\n```",
 	})
 	res = append(res, &dgo.MessageEmbedField{
 		Name:   "Team 1",
-		Value:  MapTeamDisplay(l.Game.Team1),
+		Value:  MapTeamDisplay(lm.Team1),
 		Inline: true,
 	})
 	res = append(res, &dgo.MessageEmbedField{
 		Name:   "Team 2",
-		Value:  MapTeamDisplay(l.Game.Team2),
+		Value:  MapTeamDisplay(lm.Team2),
 		Inline: true,
 	})
 	res = append(res, &dgo.MessageEmbedField{
@@ -56,32 +54,32 @@ func MakePicksEmbedFields(l *Lobby) (res []*dgo.MessageEmbedField) {
 	})
 	return
 }
-func MakePicksEmbedMessage(l *Lobby) *dgo.MessageEmbed {
+func MakePicksEmbedMessage(lm *liveMatch) *dgo.MessageEmbed {
 	res := &dgo.MessageEmbed{}
 
 	// TODO: unhardcode this
 	res.Author = &dgo.MessageEmbedAuthor{Name: "Division 1"}
-	res.Title = "Welcome to match " + l.MatchName + "!"
+	res.Title = "Welcome to match " + lm.MatchName + "!"
 
 	res.Description =
 		"```md\n# Welcome! #" +
 			"\n\n" +
 			"Captains for this match are: " +
-			"\n- " + l.Captains[0].Username +
-			"\n- " + l.Captains[1].Username +
+			"\n- " + lm.Captains[0].Username +
+			"\n- " + lm.Captains[1].Username +
 			"\n```"
 
-	res.Fields = MakePicksEmbedFields(l)
+	res.Fields = MakePicksEmbedFields(lm)
 	return res
 }
 
-func GetCaptainIds() (int, int) {
+func GetCaptainIds(maxPlayers int) (int, int) {
 	rand.Seed(time.Now().UnixNano())
 
-	n1 := rand.Intn(*MaxPlayers)
-	n2 := rand.Intn(*MaxPlayers)
+	n1 := rand.Intn(maxPlayers)
+	n2 := rand.Intn(maxPlayers)
 	if n1 == n2 {
-		return GetCaptainIds()
+		return GetCaptainIds(maxPlayers)
 	}
 
 	return n1, n2
@@ -107,6 +105,8 @@ func MapUserPerms(users []*dgo.User, permType int64) (res []*dgo.PermissionOverw
 	return
 }
 
+/*
+TODO:
 func GetChannelConfig(ctype dgo.ChannelType, GldId string, ValidUsers []*dgo.User) *ChannelConfig {
 	switch ctype {
 	case dgo.ChannelTypeGuildText:
@@ -133,7 +133,7 @@ func GetChannelConfig(ctype dgo.ChannelType, GldId string, ValidUsers []*dgo.Use
 		log.Error("[UNHANDLED CHANNEL TYPE]: GetChannelConfig")
 		return nil
 	}
-}
+} */
 
 func MapUsersToPickOptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
 	for _, player := range u {
