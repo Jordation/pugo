@@ -44,5 +44,6 @@ type ChannelConfig struct {
 type BotConfig struct {
 	Token       string   `json:"token"`
 	Prefix      string   `json:"prefix"`
+	AppId       string   `json:"appID"`
 	ListenRooms []string `json:"listen_rooms"`
 }

@@ -1,2 +1,7 @@
 TODO
 [] refactor send pick options to be handled by interaction response loop rather than the lobby struct
+
+[] New lobby system
+    -> initial screen displayed, players pinged
+    -> await all players /ready
+    -> send first prompt to captain
