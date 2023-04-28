@@ -50,14 +50,12 @@ type config struct {
 }
 
 var (
-	Bot *botService
+	Bot = &botService{}
 	mp  = 4
+	cfg config
 )
 
 func GetBotService() *botService {
-	var (
-		cfg config
-	)
 	data, err := os.ReadFile("./config.json")
 	if err != nil {
 		log.Fatal(err)
@@ -80,5 +78,8 @@ func GetBotService() *botService {
 
 	db := db.GetDb(true)
 	Bot.Db = db
+
+	Bot.BeginListening()
+
 	return Bot
 }

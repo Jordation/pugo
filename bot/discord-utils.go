@@ -1,10 +1,12 @@
 package bot
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	dgo "github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
 )
@@ -73,19 +75,18 @@ func MakePicksEmbedMessage(lm *liveMatch) *dgo.MessageEmbed {
 	return res
 }
 
-func GetCaptainIds(maxPlayers int) (int, int) {
+func getCaptainIds(maxPlayers int) (int, int) {
 	rand.Seed(time.Now().UnixNano())
 
 	n1 := rand.Intn(maxPlayers)
 	n2 := rand.Intn(maxPlayers)
 	if n1 == n2 {
-		return GetCaptainIds(maxPlayers)
+		return getCaptainIds(maxPlayers)
 	}
-
 	return n1, n2
 }
 
-func GetButton(l, id string, s dgo.ButtonStyle, d bool) *dgo.Button {
+func getButton(l, id string, s dgo.ButtonStyle, d bool) *dgo.Button {
 	return &dgo.Button{
 		Label:    l,
 		Style:    s,
@@ -94,7 +95,7 @@ func GetButton(l, id string, s dgo.ButtonStyle, d bool) *dgo.Button {
 	}
 }
 
-func MapUserPerms(users []*dgo.User, permType int64) (res []*dgo.PermissionOverwrite) {
+func mapUserPerms(users []*dgo.User, permType int64) (res []*dgo.PermissionOverwrite) {
 	for _, v := range users {
 		res = append(res, &dgo.PermissionOverwrite{
 			ID:    v.ID,
@@ -103,6 +104,17 @@ func MapUserPerms(users []*dgo.User, permType int64) (res []*dgo.PermissionOverw
 		})
 	}
 	return
+}
+
+func followUpAndError(s *discordgo.Session, i *discordgo.Interaction, errStr string) {
+	s.FollowupMessageCreate(i, true, &dgo.WebhookParams{
+		Content: fmt.Sprintf("``Sorry, it looks like there's been an error : %v``", errStr),
+	})
+}
+func followUpMessage(s *discordgo.Session, i *discordgo.Interaction, msg string) {
+	s.FollowupMessageCreate(i, true, &dgo.WebhookParams{
+		Content: fmt.Sprintf("``%v``", msg),
+	})
 }
 
 /*

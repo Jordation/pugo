@@ -29,14 +29,27 @@ func (b *botService) GetChannel(cID string) (g *discordgo.Channel, err error) {
 	return b.Channel(cID)
 }
 
+func (b *botService) DirectNotifyUser(
+	u *discordgo.User,
+	c *discordgo.Channel,
+	i *discordgo.Interaction,
+	msg string,
+) {
+	b.FollowupMessageCreate(i, true, &discordgo.WebhookParams{
+		Content: msg,
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
+}
+
 /*
 Get all previously registered servers and queue channels and initilize the bot
 with maps containing those results
 */
-func (b *botService) BeginListening() (err error) {
+func (b *botService) BeginListening() {
 	BeginListenOnce.Do(func() {
 		log.Info("[GETTING INITIAL CHANS/SERVERS]:")
 
+		// nil assigned if empty on init ;)
 		servers, queues := b.Db.GetRegisteredIds()
 
 		for _, serv := range servers {
@@ -58,18 +71,9 @@ func (b *botService) BeginListening() (err error) {
 			}
 			b.QueueChannels.Set(queue.ChanID, &queueChan{Chan: ch, MaxPlayers: mp})
 		}
-	})
-	return nil
-}
 
-func (b *botService) DirectNotifyUser(
-	u *discordgo.User,
-	c *discordgo.Channel,
-	i *discordgo.Interaction,
-	msg string,
-) {
-	b.FollowupMessageCreate(i, true, &discordgo.WebhookParams{
-		Content: msg,
-		Flags:   discordgo.MessageFlagsEphemeral,
+		if len(queues) == 0 && len(servers) == 0 {
+			log.Info("no configured channels yet :)")
+		}
 	})
 }

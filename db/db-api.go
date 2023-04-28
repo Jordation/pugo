@@ -21,5 +21,6 @@ func (db *DatabaseConnection) RemoveChannel(cID string) error {
 func (db *DatabaseConnection) GetRegisteredIds() (servers []*PugServer, queues []*QueueChannel) {
 	db.Find(&servers)
 	db.Find(&queues)
+
 	return
 }

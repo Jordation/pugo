@@ -19,7 +19,6 @@ var (
 func main() {
 	// Get the bot, open the session
 	Bot := bot.GetBotService()
-
 	defer Bot.Close()
 
 	// Register interaction handlers
@@ -27,12 +26,16 @@ func main() {
 		switch i.Type {
 		case dgo.InteractionApplicationCommand:
 			if h, ok := bot.CommandHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
+				log.Info("im handling this guy", i.ApplicationCommandData().Name)
+				h(Bot.Session, i)
 			}
-
+			return
+		case dgo.InteractionMessageComponent:
+			// TODO: button support
 		case dgo.InteractionModalSubmit:
 		default:
 			log.Info("unhandled interaction type")
+			return
 		}
 	})
 
