@@ -23,7 +23,7 @@ func (cm *ConcurrentMap[K, V]) Del(key K) {
 
 func (cm *ConcurrentMap[K, V]) Get(key K) (V, bool) {
 	cm.Lock()
-	defer cm.RUnlock()
+	defer cm.Unlock()
 	val, ok := cm.Map[key]
 	return val, ok
 }

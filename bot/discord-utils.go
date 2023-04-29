@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	dgo "github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+	"syreclabs.com/go/faker"
 )
 
 /* General use functions that create values or datastructures to be used throughout the bot */
@@ -75,26 +75,60 @@ func MakePicksEmbedMessage(lm *liveMatch) *dgo.MessageEmbed {
 	return res
 }
 
-func getCaptainIds(maxPlayers int) (int, int) {
+func getCaptains(maxPlayers int, players []*dgo.User) (c1, c2 *dgo.User) {
 	rand.Seed(time.Now().UnixNano())
 
 	n1 := rand.Intn(maxPlayers)
 	n2 := rand.Intn(maxPlayers)
 	if n1 == n2 {
-		return getCaptainIds(maxPlayers)
+		return getCaptains(maxPlayers, players)
 	}
-	return n1, n2
+	return players[n1], players[n2]
 }
 
-func getButton(l, id string, s dgo.ButtonStyle, d bool) *dgo.Button {
+func getButton(l, id string, s dgo.ButtonStyle) *dgo.Button {
 	return &dgo.Button{
 		Label:    l,
 		Style:    s,
 		CustomID: id,
-		Disabled: d,
 	}
 }
 
+func interactionRespond(
+	s *dgo.Session,
+	i *dgo.Interaction,
+	msg string,
+	flag *dgo.MessageFlags,
+) {
+	s.InteractionRespond(i, &dgo.InteractionResponse{
+		Type: dgo.InteractionResponseChannelMessageWithSource,
+		Data: &dgo.InteractionResponseData{
+			Content: fmt.Sprintf("``%v``", msg),
+		},
+	})
+}
+
+// Use 0 limit for text channel
+func GetChannelConfig(ctype dgo.ChannelType, ValidUsers []*dgo.User, userLimit int) *dgo.GuildChannelCreateData {
+	switch ctype {
+	case dgo.ChannelTypeGuildText:
+		return &dgo.GuildChannelCreateData{
+			Type:                 ctype,
+			PermissionOverwrites: mapUserPerms(ValidUsers, dgo.PermissionViewChannel),
+			Name:                 faker.Lorem().Word(),
+		}
+	case dgo.ChannelTypeGuildVoice:
+		return &dgo.GuildChannelCreateData{
+			Type:                 ctype,
+			PermissionOverwrites: mapUserPerms(ValidUsers, dgo.PermissionViewChannel),
+			Name:                 faker.Lorem().Word(),
+			UserLimit:            userLimit,
+		}
+	default:
+		log.Error("[UNHANDLED CHANNEL TYPE]: GetChannelConfig")
+		return nil
+	}
+}
 func mapUserPerms(users []*dgo.User, permType int64) (res []*dgo.PermissionOverwrite) {
 	for _, v := range users {
 		res = append(res, &dgo.PermissionOverwrite{
@@ -105,47 +139,6 @@ func mapUserPerms(users []*dgo.User, permType int64) (res []*dgo.PermissionOverw
 	}
 	return
 }
-
-func followUpAndError(s *discordgo.Session, i *discordgo.Interaction, errStr string) {
-	s.FollowupMessageCreate(i, true, &dgo.WebhookParams{
-		Content: fmt.Sprintf("``Sorry, it looks like there's been an error : %v``", errStr),
-	})
-}
-func followUpMessage(s *discordgo.Session, i *discordgo.Interaction, msg string) {
-	s.FollowupMessageCreate(i, true, &dgo.WebhookParams{
-		Content: fmt.Sprintf("``%v``", msg),
-	})
-}
-
-/*
-TODO:
-func GetChannelConfig(ctype dgo.ChannelType, GldId string, ValidUsers []*dgo.User) *ChannelConfig {
-	switch ctype {
-	case dgo.ChannelTypeGuildText:
-		return &ChannelConfig{
-			GldID: GldId,
-			DgoCfg: dgo.GuildChannelCreateData{
-				Type:                 ctype,
-				PermissionOverwrites: MapUserPerms(ValidUsers, dgo.PermissionViewChannel),
-				// TODO: make match names
-				Name: faker.Lorem().Word(),
-			}}
-
-	case dgo.ChannelTypeGuildVoice:
-		return &ChannelConfig{
-			GldID: GldId,
-			DgoCfg: dgo.GuildChannelCreateData{
-				Type:                 ctype,
-				PermissionOverwrites: MapUserPerms(ValidUsers, dgo.PermissionViewChannel),
-				Name:                 faker.Lorem().Word(),
-				UserLimit:            *MaxPlayers / 2,
-			},
-		}
-	default:
-		log.Error("[UNHANDLED CHANNEL TYPE]: GetChannelConfig")
-		return nil
-	}
-} */
 
 func MapUsersToPickOptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
 	for _, player := range u {
@@ -160,4 +153,46 @@ func MapUsersToPickOptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
 		log.Info("[REMAINING PICKS]: ", p.Label)
 	}
 	return
+}
+
+func MakeMatchVoiceChans(m *liveMatch) (*vcs, error) {
+	res := &vcs{}
+
+	// lobby vc
+	matchUsers := m.GetUsers(ALL_USERS_OPTION)
+	lbvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, matchUsers, len(matchUsers))
+
+	lbvc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *lbvc)
+	if err != nil {
+		return res, err
+	}
+	res.Lobby_vc = lbvc_CHAN
+
+	// Team vcs
+	t1vc := GetChannelConfig(dgo.ChannelTypeGuildVoice, m.GetUsers(TEAM1_OPTION), mp/2)
+	t1vc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *t1vc)
+	if err != nil {
+		return res, err
+	}
+	res.Team_1_vc = t1vc_CHAN
+
+	t2vc := GetChannelConfig(dgo.ChannelTypeGuildVoice, m.GetUsers(TEAM2_OPTION), mp/2)
+	t2vc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *t2vc)
+	if err != nil {
+		return res, err
+	}
+	res.Team_2_vc = t2vc_CHAN
+
+	// Viewer vc
+	viewerUsers := m.GetUsers(VIEWERS_OPTION)
+	if len(viewerUsers) != 0 {
+		vwvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, viewerUsers, len(viewerUsers))
+		vwvc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *vwvc)
+		if err != nil {
+			return res, err
+		}
+		res.Viewer_vc = vwvc_CHAN
+	}
+
+	return res, nil
 }

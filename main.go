@@ -26,16 +26,31 @@ func main() {
 		switch i.Type {
 		case dgo.InteractionApplicationCommand:
 			if h, ok := bot.CommandHandlers[i.ApplicationCommandData().Name]; ok {
-				log.Info("im handling this guy", i.ApplicationCommandData().Name)
-				h(Bot.Session, i)
+				h(s, i)
 			}
 			return
 		case dgo.InteractionMessageComponent:
-			// TODO: button support
+			if h, ok := bot.ComponentHandlers[i.MessageComponentData().CustomID]; ok {
+				h(s, i)
+			}
 		case dgo.InteractionModalSubmit:
+
 		default:
 			log.Info("unhandled interaction type")
 			return
+		}
+	})
+
+	Bot.AddHandler(func(s *dgo.Session, m *dgo.MessageCreate) {
+		if m.Author.Bot {
+			return
+		}
+		if queue, ok := Bot.QueueChannels.Get(m.ChannelID); ok {
+			if queue.MessageTicker == 0 {
+				queue.SendQueueMessage()
+				queue.MessageTicker = 5
+			}
+			queue.MessageTicker--
 		}
 	})
 

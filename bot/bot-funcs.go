@@ -9,10 +9,6 @@ import (
 
 var BeginListenOnce sync.Once
 
-func (b *botService) RegisterNewServer() {
-
-}
-
 func (b *botService) GetGuild(gID string) (g *discordgo.Guild, err error) {
 	log.Info("[GETTING GUILD] ", gID)
 	return b.Guild(gID)
@@ -41,6 +37,19 @@ func (b *botService) DirectNotifyUser(
 	})
 }
 
+func (b *botService) sendSOmeBUttons(cID string) {
+	b.ChannelMessageSendComplex(cID, &discordgo.MessageSend{
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					getButton("join q", JOIN_Q, discordgo.PrimaryButton),
+					getButton("leave q", LEAVE_Q, discordgo.DangerButton),
+				},
+			},
+		},
+	})
+}
+
 /*
 Get all previously registered servers and queue channels and initilize the bot
 with maps containing those results
@@ -49,7 +58,6 @@ func (b *botService) BeginListening() {
 	BeginListenOnce.Do(func() {
 		log.Info("[GETTING INITIAL CHANS/SERVERS]:")
 
-		// nil assigned if empty on init ;)
 		servers, queues := b.Db.GetRegisteredIds()
 
 		for _, serv := range servers {
@@ -69,7 +77,9 @@ func (b *botService) BeginListening() {
 				b.Db.RemoveChannel(queue.ChanID)
 				continue
 			}
-			b.QueueChannels.Set(queue.ChanID, &queueChan{Chan: ch, MaxPlayers: mp})
+			qc := &queueChan{Chan: ch, MaxPlayers: mp}
+			b.QueueChannels.Set(queue.ChanID, qc)
+			qc.SendQueueMessage()
 		}
 
 		if len(queues) == 0 && len(servers) == 0 {

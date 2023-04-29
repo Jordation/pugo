@@ -27,12 +27,14 @@ type queueChan struct {
 	Chan  *discordgo.Channel
 	Queue []*discordgo.User
 
-	MaxPlayers int
+	MaxPlayers    int
+	MessageTicker int
 }
 
 type liveMatch struct {
 	Chan *discordgo.Channel
 
+	VCs      *vcs
 	Captains []*discordgo.User
 	Players  []*discordgo.User
 	Viewers  []*discordgo.User
@@ -43,7 +45,12 @@ type liveMatch struct {
 	PickOrder bool
 	MatchName string
 }
-
+type vcs struct {
+	Lobby_vc  *discordgo.Channel
+	Team_1_vc *discordgo.Channel
+	Team_2_vc *discordgo.Channel
+	Viewer_vc *discordgo.Channel
+}
 type config struct {
 	Token string
 	AppID string
@@ -80,6 +87,6 @@ func GetBotService() *botService {
 	Bot.Db = db
 
 	Bot.BeginListening()
-
+	Bot.StateEnabled = true
 	return Bot
 }
