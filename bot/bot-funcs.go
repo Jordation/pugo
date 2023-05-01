@@ -37,19 +37,6 @@ func (b *botService) DirectNotifyUser(
 	})
 }
 
-func (b *botService) sendSOmeBUttons(cID string) {
-	b.ChannelMessageSendComplex(cID, &discordgo.MessageSend{
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					getButton("join q", JOIN_Q, discordgo.PrimaryButton),
-					getButton("leave q", LEAVE_Q, discordgo.DangerButton),
-				},
-			},
-		},
-	})
-}
-
 /*
 Get all previously registered servers and queue channels and initilize the bot
 with maps containing those results
