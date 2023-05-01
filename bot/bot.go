@@ -29,16 +29,17 @@ type queueChan struct {
 
 	MaxPlayers    int
 	MessageTicker int
+	InitialMsg    *discordgo.Message
 }
 
 type liveMatch struct {
 	Chan *discordgo.Channel
 
-	VCs           *vcs
-	Captains      []*discordgo.User
-	Players       []*discordgo.User
-	PlayersNotRdy []*discordgo.User
-	Viewers       []*discordgo.User
+	VCs        *vcs
+	Captains   []*discordgo.User
+	Players    []*discordgo.User
+	ReadyQueue []*discordgo.User
+	Viewers    []*discordgo.User
 
 	Team1 []*discordgo.User
 	Team2 []*discordgo.User

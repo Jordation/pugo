@@ -205,3 +205,27 @@ func MakeMatchVoiceChans(m *liveMatch) (*vcs, error) {
 
 	return res, nil
 }
+
+func GetQueueMessage(queue []*dgo.User) *dgo.MessageSend {
+	return &dgo.MessageSend{
+		Content: getQueueMessageBody(queue),
+		Components: []dgo.MessageComponent{
+			dgo.ActionsRow{
+				Components: []dgo.MessageComponent{
+					getButton("join q", JOIN_Q, dgo.PrimaryButton),
+					getButton("leave q", LEAVE_Q, dgo.DangerButton),
+				},
+			},
+		},
+	}
+}
+
+func getQueueMessageBody(queue []*dgo.User) (content string) {
+	content = "```md\n"
+	content += "# Welcome! #\n"
+	content += "Click the button below to join the queue\n"
+	content += "Current queue:\n"
+	content += " - " + strconv.Itoa(len(queue)) + "/" + strconv.Itoa(mp)
+	content += "\n```"
+	return
+}

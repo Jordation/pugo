@@ -1,8 +1,6 @@
 package bot
 
 import (
-	"strconv"
-
 	log "github.com/sirupsen/logrus"
 	"syreclabs.com/go/faker"
 
@@ -10,8 +8,8 @@ import (
 )
 
 func (q *queueChan) SendQueueMessage() {
-	Bot.ChannelMessageSendComplex(q.Chan.ID, &discordgo.MessageSend{
-		Content: q.getQueueMessageBody(),
+	m, _ := Bot.ChannelMessageSendComplex(q.Chan.ID, &discordgo.MessageSend{
+		Content: getQueueMessageBody(q.Queue),
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
@@ -21,16 +19,11 @@ func (q *queueChan) SendQueueMessage() {
 			},
 		},
 	})
+	q.InitialMsg = m
 }
-
-func (q *queueChan) getQueueMessageBody() (content string) {
-	content = "```md\n"
-	content += "# Welcome! #\n"
-	content += "Click the button below to join the queue\n"
-	content += "Current queue:\n"
-	content += " - " + strconv.Itoa(len(q.Queue)) + "/" + strconv.Itoa(mp)
-	content += "\n```"
-	return
+func (q *queueChan) DelInitialMsg() {
+	Bot.ChannelMessageDelete(q.Chan.ID, q.InitialMsg.ID)
+	q.InitialMsg = nil
 }
 
 func (q *queueChan) AddPlayerToQueue(u *discordgo.User) {

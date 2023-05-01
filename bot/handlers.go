@@ -11,11 +11,25 @@ var (
 		JOIN_Q: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			queue, ok := Bot.QueueChannels.Get(i.Interaction.ChannelID)
 			if !ok {
-				fmtResponse(s, i.Interaction, JOIN_Q_ERR, 0)
+				fmtResponse(s, i.Interaction, JOIN_Q_ERR, discordgo.MessageFlagsEphemeral)
 				return
 			}
-			fmtResponse(s, i.Interaction, "joined q", 0)
+			fmtResponse(s, i.Interaction, JOIN_Q_SUCCESS, discordgo.MessageFlagsEphemeral)
 			queue.AddPlayerToQueue(i.Member.User)
+
+			if queue.InitialMsg != nil {
+				m := GetQueueMessage(queue.Queue)
+				Bot.ChannelMessageEditComplex(
+					&discordgo.MessageEdit{
+						Content:    &m.Content,
+						Components: m.Components,
+						ID:         queue.InitialMsg.ID,
+						Channel:    queue.InitialMsg.ChannelID,
+					},
+				)
+
+			}
+
 			if len(queue.Queue) == queue.MaxPlayers {
 				queue.CreateMatch()
 			}
@@ -45,6 +59,11 @@ var (
 			}
 			// TODO : figure out how / when I want to check who is in the vc
 			fmtResponse(s, i.Interaction, "wow u readied up nice", discordgo.MessageFlagsEphemeral)
+			match.ReadyQueue = append(match.ReadyQueue, i.Member.User)
+			if len(match.ReadyQueue) == mp {
+				match.StartPicks()
+
+			}
 		},
 
 		// END BUTTONS
@@ -52,7 +71,7 @@ var (
 		// SELECTS
 
 		PLAYER_PICK: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-
+			fmtResponse(s, i.Interaction, "u did it mate you picked him "+i.Interaction.MessageComponentData().Values[0], discordgo.MessageFlagsEphemeral)
 		},
 		// END SELECTS
 	}
@@ -129,5 +148,6 @@ const (
 	CHANNEL_EXISTS_ERR  = "Error registering queue, channel already registered"
 	CHANNEL_ADD_SUCCESS = "Channel registered successfully, hf ;)"
 
-	JOIN_Q_ERR = "Error joining the queue"
+	JOIN_Q_ERR     = "Error joining the queue"
+	JOIN_Q_SUCCESS = "You joined the queue"
 )

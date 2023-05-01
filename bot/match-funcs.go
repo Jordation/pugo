@@ -36,8 +36,29 @@ func (m *liveMatch) Start() {
 	// ready checks -> alternating pick offers / updated embed
 }
 func (m *liveMatch) StartPicks() {
+	m.sendPlayerPickMsg(m.PickOrder)
+	m.PickOrder = !m.PickOrder
+}
+
+func (m *liveMatch) sendPlayerPickMsg(turn bool) (*discordgo.Message, error) {
+	msg := &discordgo.MessageSend{
+		Content: "``It is one of the captains turns to pick",
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.SelectMenu{
+						MenuType: discordgo.StringSelectMenu,
+						CustomID: PLAYER_PICK,
+						Options:  MapUsersToPickOptions(m.Players),
+					},
+				},
+			},
+		},
+	}
+	return Bot.ChannelMessageSendComplex(m.Chan.ID, msg)
 
 }
+
 func (m *liveMatch) Cancel() {}
 
 const (
