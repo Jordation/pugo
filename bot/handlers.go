@@ -11,10 +11,10 @@ var (
 		JOIN_Q: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			queue, ok := Bot.QueueChannels.Get(i.Interaction.ChannelID)
 			if !ok {
-				interactionRespond(s, i.Interaction, JOIN_Q_ERR, nil)
+				fmtResponse(s, i.Interaction, JOIN_Q_ERR, 0)
 				return
 			}
-			interactionRespond(s, i.Interaction, "joined q", nil)
+			fmtResponse(s, i.Interaction, "joined q", 0)
 			queue.AddPlayerToQueue(i.Member.User)
 			if len(queue.Queue) == queue.MaxPlayers {
 				queue.CreateMatch()
@@ -22,7 +22,7 @@ var (
 		},
 
 		LEAVE_Q: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			interactionRespond(s, i.Interaction, "left q", nil)
+			fmtResponse(s, i.Interaction, "left q", 0)
 		},
 
 		Q_READY: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -31,12 +31,20 @@ var (
 
 			// get the user who clicked the buttons voice state
 			ustate, err := Bot.State.VoiceState(i.GuildID, i.Member.User.ID)
-			if ustate.ChannelID != match.VCs.Lobby_vc.ID || err != nil {
+			if err != nil ||
+				ustate.ChannelID != match.VCs.Lobby_vc.ID {
 				Bot.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: 1,
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "``You must join the match lobby VC before readying up``",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
 				})
-			}
+				return
 
+			}
+			// TODO : figure out how / when I want to check who is in the vc
+			fmtResponse(s, i.Interaction, "wow u readied up nice", discordgo.MessageFlagsEphemeral)
 		},
 
 		// END BUTTONS
@@ -53,19 +61,35 @@ var (
 		READY: func(s *discordgo.Session, i *discordgo.InteractionCreate) {},
 
 		ADD_SERV: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Add server to db
 			if err := Bot.Db.AddServer(i.GuildID); err != nil {
-				interactionRespond(s, i.Interaction, SERVER_EXISTS_ERR, nil)
+				fmtResponse(s, i.Interaction, SERVER_EXISTS_ERR, 0)
 				return
 			}
-			interactionRespond(s, i.Interaction, SERVER_ADD_SUCCESS, nil)
+
+			// Get the server, create struct to hold data
+			g, _ := Bot.GetGuild(i.GuildID)
+			newServ := &pugServer{Guild: g}
+			Bot.Servers.Set(g.ID, newServ)
+
+			// Acknowledge the interaction
+			fmtResponse(s, i.Interaction, SERVER_ADD_SUCCESS, 0)
 		},
 
 		ADD_QUEUE: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			// Add channel to db
 			if err := Bot.Db.AddChannel(i.ChannelID, i.GuildID); err != nil {
-				interactionRespond(s, i.Interaction, CHANNEL_EXISTS_ERR, nil)
+				fmtResponse(s, i.Interaction, CHANNEL_EXISTS_ERR, 0)
 				return
 			}
-			interactionRespond(s, i.Interaction, CHANNEL_ADD_SUCCESS, nil)
+
+			// Get channel and create struct to hold data
+			c, _ := Bot.GetChannel(i.ChannelID)
+			newQ := &queueChan{Chan: c, MaxPlayers: mp}
+			Bot.QueueChannels.Set(c.ID, newQ)
+
+			// Acknowledge interaction
+			fmtResponse(s, i.Interaction, CHANNEL_ADD_SUCCESS, 0)
 		},
 	}
 

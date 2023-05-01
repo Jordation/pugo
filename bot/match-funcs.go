@@ -19,7 +19,7 @@ func (m *liveMatch) Start() {
 	rdyBtn := getButton("ready", Q_READY, discordgo.SuccessButton)
 	rdyBtn.Emoji = discordgo.ComponentEmoji{Name: "✅"}
 	newmessage := discordgo.MessageSend{
-		Content: "ping all players msg",
+		Content: MapUsers(m.GetUsers(ALL_USERS_OPTION), true),
 		Embeds:  []*discordgo.MessageEmbed{MakePicksEmbedMessage(m)},
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
@@ -77,5 +77,8 @@ func (m *liveMatch) CleanupChannels() {
 	}
 	if m.VCs.Viewer_vc != nil {
 		Bot.ChannelDelete(m.VCs.Viewer_vc.ID)
+	}
+	if m.Chan != nil {
+		Bot.ChannelDelete(m.Chan.ID)
 	}
 }

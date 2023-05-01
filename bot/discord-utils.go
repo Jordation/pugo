@@ -8,14 +8,17 @@ import (
 
 	dgo "github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
-	"syreclabs.com/go/faker"
 )
 
 /* General use functions that create values or datastructures to be used throughout the bot */
 
-func MapUserMentions(u []*dgo.User) (res string) {
+func MapUsers(u []*dgo.User, mention bool) (res string) {
 	for i, v := range u {
-		res += v.Username
+		if mention {
+			res += "<@" + v.ID + ">"
+		} else {
+			res += v.Username
+		}
 		if i+1 == len(u) {
 			continue
 		}
@@ -37,7 +40,7 @@ func MakePicksEmbedFields(lm *liveMatch) (res []*dgo.MessageEmbedField) {
 	res = append(res, &dgo.MessageEmbedField{
 		Name: "Available picks",
 		Value: "```md\n" +
-			MapUserMentions(lm.Players) +
+			MapUsers(lm.Players, false) +
 			"\n```",
 	})
 	res = append(res, &dgo.MessageEmbedField{
@@ -56,6 +59,7 @@ func MakePicksEmbedFields(lm *liveMatch) (res []*dgo.MessageEmbedField) {
 	})
 	return
 }
+
 func MakePicksEmbedMessage(lm *liveMatch) *dgo.MessageEmbed {
 	res := &dgo.MessageEmbed{}
 
@@ -70,7 +74,6 @@ func MakePicksEmbedMessage(lm *liveMatch) *dgo.MessageEmbed {
 			"\n- " + lm.Captains[0].Username +
 			"\n- " + lm.Captains[1].Username +
 			"\n```"
-
 	res.Fields = MakePicksEmbedFields(lm)
 	return res
 }
@@ -94,34 +97,41 @@ func getButton(l, id string, s dgo.ButtonStyle) *dgo.Button {
 	}
 }
 
-func interactionRespond(
+func fmtResponse(
 	s *dgo.Session,
 	i *dgo.Interaction,
 	msg string,
-	flag *dgo.MessageFlags,
+	flag dgo.MessageFlags,
 ) {
 	s.InteractionRespond(i, &dgo.InteractionResponse{
 		Type: dgo.InteractionResponseChannelMessageWithSource,
 		Data: &dgo.InteractionResponseData{
 			Content: fmt.Sprintf("``%v``", msg),
+			Flags:   flag,
 		},
 	})
 }
 
 // Use 0 limit for text channel
-func GetChannelConfig(ctype dgo.ChannelType, ValidUsers []*dgo.User, userLimit int) *dgo.GuildChannelCreateData {
+func GetChannelConfig(
+	ctype dgo.ChannelType,
+	ValidUsers []*dgo.User,
+	userLimit int,
+	chanName string,
+) *dgo.GuildChannelCreateData {
+
 	switch ctype {
 	case dgo.ChannelTypeGuildText:
 		return &dgo.GuildChannelCreateData{
 			Type:                 ctype,
 			PermissionOverwrites: mapUserPerms(ValidUsers, dgo.PermissionViewChannel),
-			Name:                 faker.Lorem().Word(),
+			Name:                 chanName,
 		}
 	case dgo.ChannelTypeGuildVoice:
 		return &dgo.GuildChannelCreateData{
 			Type:                 ctype,
 			PermissionOverwrites: mapUserPerms(ValidUsers, dgo.PermissionViewChannel),
-			Name:                 faker.Lorem().Word(),
+			Name:                 chanName,
 			UserLimit:            userLimit,
 		}
 	default:
@@ -160,8 +170,7 @@ func MakeMatchVoiceChans(m *liveMatch) (*vcs, error) {
 
 	// lobby vc
 	matchUsers := m.GetUsers(ALL_USERS_OPTION)
-	lbvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, matchUsers, len(matchUsers))
-
+	lbvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, matchUsers, len(matchUsers), "Lobby - "+m.MatchName)
 	lbvc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *lbvc)
 	if err != nil {
 		return res, err
@@ -169,14 +178,14 @@ func MakeMatchVoiceChans(m *liveMatch) (*vcs, error) {
 	res.Lobby_vc = lbvc_CHAN
 
 	// Team vcs
-	t1vc := GetChannelConfig(dgo.ChannelTypeGuildVoice, m.GetUsers(TEAM1_OPTION), mp/2)
+	t1vc := GetChannelConfig(dgo.ChannelTypeGuildVoice, m.GetUsers(TEAM1_OPTION), mp/2, "Team 1 - "+m.MatchName)
 	t1vc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *t1vc)
 	if err != nil {
 		return res, err
 	}
 	res.Team_1_vc = t1vc_CHAN
 
-	t2vc := GetChannelConfig(dgo.ChannelTypeGuildVoice, m.GetUsers(TEAM2_OPTION), mp/2)
+	t2vc := GetChannelConfig(dgo.ChannelTypeGuildVoice, m.GetUsers(TEAM2_OPTION), mp/2, "Team 2 - "+m.MatchName)
 	t2vc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *t2vc)
 	if err != nil {
 		return res, err
@@ -186,7 +195,7 @@ func MakeMatchVoiceChans(m *liveMatch) (*vcs, error) {
 	// Viewer vc
 	viewerUsers := m.GetUsers(VIEWERS_OPTION)
 	if len(viewerUsers) != 0 {
-		vwvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, viewerUsers, len(viewerUsers))
+		vwvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, viewerUsers, len(viewerUsers), "Viewers - "+m.MatchName)
 		vwvc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *vwvc)
 		if err != nil {
 			return res, err

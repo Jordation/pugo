@@ -1,13 +1,36 @@
 package bot
 
 import (
+	"strconv"
+
 	log "github.com/sirupsen/logrus"
+	"syreclabs.com/go/faker"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 func (q *queueChan) SendQueueMessage() {
-	Bot.sendSOmeBUttons(q.Chan.ID)
+	Bot.ChannelMessageSendComplex(q.Chan.ID, &discordgo.MessageSend{
+		Content: q.getQueueMessageBody(),
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					getButton("join q", JOIN_Q, discordgo.PrimaryButton),
+					getButton("leave q", LEAVE_Q, discordgo.DangerButton),
+				},
+			},
+		},
+	})
+}
+
+func (q *queueChan) getQueueMessageBody() (content string) {
+	content = "```md\n"
+	content += "# Welcome! #\n"
+	content += "Click the button below to join the queue\n"
+	content += "Current queue:\n"
+	content += " - " + strconv.Itoa(len(q.Queue)) + "/" + strconv.Itoa(mp)
+	content += "\n```"
+	return
 }
 
 func (q *queueChan) AddPlayerToQueue(u *discordgo.User) {
@@ -25,7 +48,7 @@ func (q *queueChan) CreateMatch() {
 
 	log.Info(" queue filled, match beginning with: ", q.Queue)
 
-	chanCfg := GetChannelConfig(discordgo.ChannelTypeGuildText, q.Queue, 0)
+	chanCfg := GetChannelConfig(discordgo.ChannelTypeGuildText, q.Queue, 0, faker.Lorem().Word())
 	newMatchChan, err := Bot.GuildChannelCreateComplex(q.Chan.GuildID, *chanCfg)
 	if err != nil {
 		log.Fatal(err)
@@ -44,5 +67,6 @@ func (q *queueChan) CreateMatch() {
 	nm.Team1 = append(nm.Team1, c1)
 	nm.Team2 = append(nm.Team2, c2)
 
+	Bot.Matches.Set(nm.Chan.ID, nm)
 	nm.Start()
 }

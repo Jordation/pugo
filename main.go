@@ -46,6 +46,7 @@ func main() {
 			return
 		}
 		if queue, ok := Bot.QueueChannels.Get(m.ChannelID); ok {
+			log.Info("at least im working", queue.MessageTicker)
 			if queue.MessageTicker == 0 {
 				queue.SendQueueMessage()
 				queue.MessageTicker = 5
@@ -77,6 +78,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Cannot delete slash command %q: %v", name, err)
 		}
+	}
+
+	for _, m := range Bot.Matches.Map {
+		m.CleanupChannels()
 	}
 
 	log.Info("Graceful shutdown complete")
