@@ -1,6 +1,9 @@
 package bot
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -14,22 +17,10 @@ var (
 				fmtResponse(s, i.Interaction, JOIN_Q_ERR, discordgo.MessageFlagsEphemeral)
 				return
 			}
-			fmtResponse(s, i.Interaction, JOIN_Q_SUCCESS, discordgo.MessageFlagsEphemeral)
+			//fmtResponse(s, i.Interaction, JOIN_Q_SUCCESS, discordgo.MessageFlagsEphemeral)
 			queue.AddPlayerToQueue(i.Member.User)
-
-			if queue.InitialMsg != nil {
-				m := GetQueueMessage(queue.Queue)
-				Bot.ChannelMessageEditComplex(
-					&discordgo.MessageEdit{
-						Content:    &m.Content,
-						Components: m.Components,
-						ID:         queue.InitialMsg.ID,
-						Channel:    queue.InitialMsg.ChannelID,
-					},
-				)
-
-			}
-
+			msg := GetQueueMessage(queue.Queue)
+			EditQueueMsg(s, i.Interaction, msg)
 			if len(queue.Queue) == queue.MaxPlayers {
 				queue.CreateMatch()
 			}
@@ -57,21 +48,35 @@ var (
 				return
 
 			}
-			// TODO : figure out how / when I want to check who is in the vc
-			fmtResponse(s, i.Interaction, "wow u readied up nice", discordgo.MessageFlagsEphemeral)
 			match.ReadyQueue = append(match.ReadyQueue, i.Member.User)
-			if len(match.ReadyQueue) == mp {
-				match.StartPicks()
-
+			if len(match.ReadyQueue) != mp {
+				// TODO: if not full ready queue, initial message should still update to reflect ready count
+				fmtResponse(s, i.Interaction, "wow u readied up nice", discordgo.MessageFlagsEphemeral)
+			} else {
+				msg := &discordgo.MessageSend{
+					Embeds:     []*discordgo.MessageEmbed{MakePicksEmbedMessage(match)},
+					Components: getPicksMessage(match.Captains[0].Username+"'s", match.Players).Components,
+				}
+				EditMatchMsg(s, i.Interaction, msg)
 			}
 		},
 
 		// END BUTTONS
 
 		// SELECTS
-
 		PLAYER_PICK: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			fmtResponse(s, i.Interaction, "u did it mate you picked him "+i.Interaction.MessageComponentData().Values[0], discordgo.MessageFlagsEphemeral)
+			match, _ := Bot.Matches.Get(i.Interaction.ChannelID)
+			picked, _ := Bot.GetUser(strings.Split(i.Interaction.MessageComponentData().Values[0], "_")[0])
+			match.AddToTeam(picked)
+
+			cap := match.Captains[0].Username + "'s" + fmt.Sprintf("%v", match.PickOrder)
+			if match.PickOrder {
+				cap = match.Captains[1].Username + "'s" + fmt.Sprintf("%v", match.PickOrder)
+			}
+			EditMatchMsg(s, i.Interaction, &discordgo.MessageSend{
+				Embeds:     []*discordgo.MessageEmbed{MakePicksEmbedMessage(match)},
+				Components: getPicksMessage(cap, match.Players).Components,
+			})
 		},
 		// END SELECTS
 	}

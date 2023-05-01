@@ -53,10 +53,23 @@ func MakePicksEmbedFields(lm *liveMatch) (res []*dgo.MessageEmbedField) {
 		Value:  MapTeamDisplay(lm.Team2),
 		Inline: true,
 	})
-	res = append(res, &dgo.MessageEmbedField{
-		Name:  "Last selection:",
-		Value: "```md\n- if i cbf\n```",
-	})
+	// if the ready queue isnt full, embed shows its status
+	if len(lm.ReadyQueue) != mp {
+		res = append(res, &dgo.MessageEmbedField{
+			Name:  "Waiting for the players to ready up",
+			Value: "```md\n- " + strconv.Itoa(len(lm.ReadyQueue)) + " / " + strconv.Itoa(mp) + "\n```",
+		})
+	} else {
+		cap := lm.Captains[0].Username + "'s"
+		if lm.PickOrder {
+			cap = lm.Captains[1].Username + "'s"
+		}
+		res = append(res, &dgo.MessageEmbedField{
+			Name:  "Picking Phase",
+			Value: "``" + cap + " turn to pick.``",
+		})
+	}
+
 	return
 }
 
@@ -78,6 +91,23 @@ func MakePicksEmbedMessage(lm *liveMatch) *dgo.MessageEmbed {
 	return res
 }
 
+func getPicksMessage(captain string, players []*dgo.User) *dgo.MessageSend {
+	return &dgo.MessageSend{
+		Content: "``It is " + captain + " turn to pick",
+		Components: []dgo.MessageComponent{
+			dgo.ActionsRow{
+				Components: []dgo.MessageComponent{
+					dgo.SelectMenu{
+						MenuType: dgo.StringSelectMenu,
+						CustomID: PLAYER_PICK,
+						Options:  MapUsersToPickOptions(players),
+					},
+				},
+			},
+		},
+	}
+}
+
 func getCaptains(maxPlayers int, players []*dgo.User) (c1, c2 *dgo.User) {
 	rand.Seed(time.Now().UnixNano())
 
@@ -95,6 +125,34 @@ func getButton(l, id string, s dgo.ButtonStyle) *dgo.Button {
 		Style:    s,
 		CustomID: id,
 	}
+}
+
+func EditMatchMsg(
+	s *dgo.Session,
+	i *dgo.Interaction,
+	msg *dgo.MessageSend,
+) {
+	s.InteractionRespond(i, &dgo.InteractionResponse{
+		Type: dgo.InteractionResponseUpdateMessage,
+		Data: &dgo.InteractionResponseData{
+			Embeds:     msg.Embeds,
+			Content:    msg.Content,
+			Components: msg.Components,
+		},
+	})
+}
+func EditQueueMsg(
+	s *dgo.Session,
+	i *dgo.Interaction,
+	msg *dgo.MessageSend,
+) {
+	s.InteractionRespond(i, &dgo.InteractionResponse{
+		Type: dgo.InteractionResponseUpdateMessage,
+		Data: &dgo.InteractionResponseData{
+			Content:    msg.Content,
+			Components: msg.Components,
+		},
+	})
 }
 
 func fmtResponse(
@@ -156,7 +214,8 @@ func MapUsersToPickOptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
 			Label: player.Username, // + role + etc...
 			// TODO: the random int is for self joining test
 			// breaks GetUser function in HandleSelectPlayer
-			Value: player.ID + strconv.Itoa(rand.Intn(10000)),
+			// splitting on _ for now
+			Value: player.ID + "_" + strconv.Itoa(rand.Intn(10000)),
 		})
 	}
 	for _, p := range res {
@@ -165,19 +224,23 @@ func MapUsersToPickOptions(u []*dgo.User) (res []dgo.SelectMenuOption) {
 	return
 }
 
-func MakeMatchVoiceChans(m *liveMatch) (*vcs, error) {
+func MakeMatchVoiceChans(m *liveMatch, rdy bool) (*vcs, error) {
 	res := &vcs{}
 
 	// lobby vc
-	matchUsers := m.GetUsers(ALL_USERS_OPTION)
-	lbvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, matchUsers, len(matchUsers), "Lobby - "+m.MatchName)
-	lbvc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *lbvc)
-	if err != nil {
-		return res, err
+	if !rdy {
+		matchUsers := m.GetUsers(ALL_USERS_OPTION)
+		lbvc := GetChannelConfig(dgo.ChannelTypeGuildVoice, matchUsers, len(matchUsers), "Lobby - "+m.MatchName)
+		lbvc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *lbvc)
+		if err != nil {
+			return res, err
+		}
+		res.Lobby_vc = lbvc_CHAN
+		return res, nil
 	}
-	res.Lobby_vc = lbvc_CHAN
 
 	// Team vcs
+	res.Lobby_vc = m.VCs.Lobby_vc
 	t1vc := GetChannelConfig(dgo.ChannelTypeGuildVoice, m.GetUsers(TEAM1_OPTION), mp/2, "Team 1 - "+m.MatchName)
 	t1vc_CHAN, err := Bot.GuildChannelCreateComplex(m.Chan.GuildID, *t1vc)
 	if err != nil {

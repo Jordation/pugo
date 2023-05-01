@@ -9,7 +9,7 @@ func (m *liveMatch) Start() {
 	// Start() is called _after_ the match is instantiated with all required data to begin
 
 	// err can occur at each of 4 channel creations, clean up if any fail
-	matchVcs, err := MakeMatchVoiceChans(m)
+	matchVcs, err := MakeMatchVoiceChans(m, false)
 	m.VCs = matchVcs
 	if err != nil {
 		m.CleanupChannels()
@@ -32,31 +32,6 @@ func (m *liveMatch) Start() {
 	if err != nil {
 		log.Error("msg fail to make ", err)
 	}
-	// TODO: figure out message edit logic
-	// ready checks -> alternating pick offers / updated embed
-}
-func (m *liveMatch) StartPicks() {
-	m.sendPlayerPickMsg(m.PickOrder)
-	m.PickOrder = !m.PickOrder
-}
-
-func (m *liveMatch) sendPlayerPickMsg(turn bool) (*discordgo.Message, error) {
-	msg := &discordgo.MessageSend{
-		Content: "``It is one of the captains turns to pick",
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.SelectMenu{
-						MenuType: discordgo.StringSelectMenu,
-						CustomID: PLAYER_PICK,
-						Options:  MapUsersToPickOptions(m.Players),
-					},
-				},
-			},
-		},
-	}
-	return Bot.ChannelMessageSendComplex(m.Chan.ID, msg)
-
 }
 
 func (m *liveMatch) Cancel() {}
@@ -101,5 +76,25 @@ func (m *liveMatch) CleanupChannels() {
 	}
 	if m.Chan != nil {
 		Bot.ChannelDelete(m.Chan.ID)
+	}
+}
+func (m *liveMatch) AddToTeam(u *discordgo.User) {
+	if m.PickOrder {
+		m.Team2 = append(m.Team2, u)
+		log.Info("[ADDED TO TEAM 2 ]:", u.Username)
+	} else {
+		m.Team1 = append(m.Team1, u)
+		log.Info("[ADDED TO TEAM 1 ]:", u.Username)
+	}
+	m.RemoveAfterPicked(u.ID)
+}
+
+func (m *liveMatch) RemoveAfterPicked(uID string) {
+	for i, v := range m.Players {
+		if v.ID == uID {
+			m.Players = append(m.Players[:i], m.Players[:i+1]...)
+			m.PickOrder = !m.PickOrder
+			return
+		}
 	}
 }
